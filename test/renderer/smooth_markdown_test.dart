@@ -211,6 +211,63 @@ void main() {
       expect(find.text('• '), findsNWidgets(3));
     });
 
+    testWidgets('should keep a wrapped list item on one paragraph', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SmoothMarkdown(
+            data: '- alpha\n  beta gamma\n',
+            useRepaintBoundary: false,
+            enableCache: false,
+          ),
+        ),
+      );
+
+      expect(findRichTextContaining('alpha\nbeta gamma'), findsOneWidget);
+      expect(findRichTextContaining('alphabeta'), findsNothing);
+    });
+
+    testWidgets('should put a list item\'s second paragraph on its own line', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SmoothMarkdown(
+            data: '- First\n\n  Second\n',
+            useRepaintBoundary: false,
+            enableCache: false,
+          ),
+        ),
+      );
+
+      expect(findRichTextContaining('FirstSecond'), findsNothing);
+      final first = tester.getTopLeft(findRichTextContaining('First'));
+      final second = tester.getTopLeft(findRichTextContaining('Second'));
+      expect(second.dy, greaterThan(first.dy));
+      expect(second.dx, first.dx);
+    });
+
+    testWidgets('should put a quote inside a list item below its text', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SmoothMarkdown(
+            data: '- First\n  > quoted\n',
+            useRepaintBoundary: false,
+            enableCache: false,
+          ),
+        ),
+      );
+
+      expect(findRichTextContaining('Firstquoted'), findsNothing);
+      expect(
+        tester.getTopLeft(findRichTextContaining('quoted')).dy,
+        greaterThan(tester.getTopLeft(findRichTextContaining('First')).dy),
+      );
+    });
+
     testWidgets('should render ordered list', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(

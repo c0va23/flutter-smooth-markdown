@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../config/style_sheet.dart';
+import '../../parser/ast/html_nodes.dart';
 import '../../parser/ast/markdown_node.dart';
 import '../widget_builder.dart';
 
@@ -73,13 +74,16 @@ class ListBuilder extends MarkdownWidgetBuilder {
       );
     }
 
+    // The item's first line is inline content; what follows it — a nested
+    // list, or a paragraph, quote, code block or table indented under the
+    // item — is a block of its own and goes on its own line below.
     final inlineChildren = <MarkdownNode>[];
-    final nestedLists = <ListNode>[];
+    final blockChildren = <MarkdownNode>[];
     for (final child in item.children) {
-      if (child is ListNode) {
-        nestedLists.add(child);
-      } else {
+      if (blockChildren.isEmpty && !_isBlock(child)) {
         inlineChildren.add(child);
+      } else {
+        blockChildren.add(child);
       }
     }
 
@@ -94,17 +98,28 @@ class ListBuilder extends MarkdownWidgetBuilder {
       content = Text(text, style: styleSheet.textStyle);
     }
 
+    final blockRenderer = context.blockRenderer;
     final contentChildren = <Widget>[
       if (content != null) content,
-      for (final nestedList in nestedLists)
-        Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: build(
-            nestedList,
-            styleSheet,
-            context.copyWith(listLevel: context.listLevel + 1),
-          ),
-        ),
+      for (final child in blockChildren)
+        if (child is ListNode)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: build(
+              child,
+              styleSheet,
+              context.copyWith(listLevel: context.listLevel + 1),
+            ),
+          )
+        else if (blockRenderer != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: blockRenderer([child]),
+          )
+        else if (inlineRenderer != null)
+          inlineRenderer([child], styleSheet.textStyle)
+        else
+          Text(_extractText([child]), style: styleSheet.textStyle),
     ];
 
     return Padding(
@@ -126,6 +141,19 @@ class ListBuilder extends MarkdownWidgetBuilder {
       ),
     );
   }
+
+  static bool _isBlock(MarkdownNode node) =>
+      node is ListNode ||
+      node is ParagraphNode ||
+      node is BlockquoteNode ||
+      node is CodeBlockNode ||
+      node is TableNode ||
+      node is HeaderNode ||
+      node is HorizontalRuleNode ||
+      node is BlockMathNode ||
+      node is HtmlBlockNode ||
+      node is FootnoteDefinitionNode ||
+      node is DetailsNode;
 
   String _extractText(List<MarkdownNode> nodes) {
     final buffer = StringBuffer();
