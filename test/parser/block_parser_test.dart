@@ -410,7 +410,7 @@ const x = 10;
         );
       });
 
-      test('should parse indented continuation paragraph in list item', () {
+      test('should join an indented wrapped line into the item text', () {
         const markdown = '''
 - First
   continuation paragraph
@@ -423,14 +423,49 @@ const x = 10;
         expect(list.items, hasLength(2));
 
         final first = list.items.first;
-        expect(first.children, hasLength(2));
-        expect((first.children[0] as TextNode).content, 'First');
-
-        final continuation = first.children[1] as ParagraphNode;
+        expect(first.children, hasLength(1));
         expect(
-          (continuation.children.single as TextNode).content,
-          'continuation paragraph',
+          (first.children.single as TextNode).content,
+          'First\ncontinuation paragraph',
         );
+      });
+
+      test('should join a wrapped line that starts with emphasis', () {
+        const markdown = '''
+- An agent needs
+  **Continue elsewhere** switched on
+''';
+        final list = parser.parse(markdown).single as ListNode;
+
+        expect(
+          (list.items.single.children.single as TextNode).content,
+          'An agent needs\n**Continue elsewhere** switched on',
+        );
+      });
+
+      test('should join wrapped lines and still nest a list below them', () {
+        const markdown = '''
+- First
+  wrapped
+  - Child
+''';
+        final list = parser.parse(markdown).single as ListNode;
+        final first = list.items.single;
+
+        expect((first.children.first as TextNode).content, 'First\nwrapped');
+        expect(first.children.last, isA<ListNode>());
+      });
+
+      test('should not join a wrapped line that starts a block', () {
+        const markdown = '''
+- First
+  > quoted
+''';
+        final list = parser.parse(markdown).single as ListNode;
+        final first = list.items.single;
+
+        expect((first.children.first as TextNode).content, 'First');
+        expect(first.children.last, isA<BlockquoteNode>());
       });
 
       test('should keep loose indented continuation in list item', () {
