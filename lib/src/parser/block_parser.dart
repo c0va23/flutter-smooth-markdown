@@ -697,15 +697,7 @@ class BlockParser {
       }
 
       // Stop at special block markers
-      if (_isHeader(line) ||
-          _isCodeBlockStart(line) ||
-          _isBlockMathStart(line) ||
-          _isBlockquote(line) ||
-          _isListItem(line) ||
-          _isHorizontalRule(line) ||
-          _isFootnoteDefinition(line) ||
-          _isTableStart(lines, i) ||
-          _htmlParser?.probe(line) != null) {
+      if (_interruptsParagraph(lines, i)) {
         break;
       }
 
@@ -719,6 +711,20 @@ class BlockParser {
       node: ParagraphNode([TextNode(content)]),
       linesConsumed: i - startIndex,
     );
+  }
+
+  /// Whether the line at [index] starts a block that ends a paragraph.
+  bool _interruptsParagraph(List<String> lines, int index) {
+    final line = lines[index];
+    return _isHeader(line) ||
+        _isCodeBlockStart(line) ||
+        _isBlockMathStart(line) ||
+        _isBlockquote(line) ||
+        _isListItem(line) ||
+        _isHorizontalRule(line) ||
+        _isFootnoteDefinition(line) ||
+        _isTableStart(lines, index) ||
+        _htmlParser?.probe(line) != null;
   }
 
   /// Checks if a line starts a table (header followed by separator)
