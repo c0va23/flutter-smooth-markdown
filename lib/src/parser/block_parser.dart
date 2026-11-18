@@ -433,12 +433,44 @@ class BlockParser {
 
       // Parse list item
       var item = _parseListItem(line);
-      final contentIndent = _listContentIndent(rawLine);
+      final contentIndent = _listContentIndent(rawLine) ?? indent + 2;
+
+      // Indented lines right after the marker line, with no blank line
+      // between, continue the item's first paragraph (CommonMark: a soft line
+      // break), so they join its text rather than becoming a paragraph of
+      // their own.
+      var next = i + 1;
+      final paragraphLines = <String>[];
+      while (next < lines.length &&
+          lines[next].trim().isNotEmpty &&
+          _isListContinuationLine(
+            lines[next],
+            baseIndent: baseIndent,
+            contentIndent: contentIndent,
+          )) {
+        final unindented = [
+          for (var k = next; k < lines.length && k <= next + 1; k++)
+            _stripIndent(lines[k], contentIndent),
+        ];
+        if (_interruptsParagraph(unindented, 0)) break;
+        paragraphLines.add(unindented.first);
+        next++;
+      }
+      if (paragraphLines.isNotEmpty) {
+        final first = item.children.first as TextNode;
+        item = item.copyWith(
+          children: [
+            TextNode([first.content, ...paragraphLines].join('\n')),
+            ...item.children.skip(1),
+          ],
+        );
+      }
+
       final continuation = _parseListItemContinuation(
         lines,
-        i + 1,
+        next,
         baseIndent: baseIndent,
-        contentIndent: contentIndent ?? indent + 2,
+        contentIndent: contentIndent,
       );
       if (continuation.children.isNotEmpty) {
         item = item.copyWith(
@@ -449,7 +481,7 @@ class BlockParser {
         );
       }
       items.add(item);
-      i += 1 + continuation.linesConsumed;
+      i = next + continuation.linesConsumed;
     }
 
     final startIndex0 =
