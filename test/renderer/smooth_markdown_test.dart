@@ -211,6 +211,86 @@ void main() {
       expect(find.text('• '), findsNWidgets(3));
     });
 
+    testWidgets('should keep a wrapped list item on one paragraph', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SmoothMarkdown(
+            data: '- alpha\n  beta gamma\n',
+            useRepaintBoundary: false,
+            enableCache: false,
+          ),
+        ),
+      );
+
+      expect(findRichTextContaining('alpha\nbeta gamma'), findsOneWidget);
+      expect(findRichTextContaining('alphabeta'), findsNothing);
+    });
+
+    testWidgets('should put a list item\'s second paragraph on its own line', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SmoothMarkdown(
+            data: '- First\n\n  Second\n',
+            useRepaintBoundary: false,
+            enableCache: false,
+          ),
+        ),
+      );
+
+      expect(findRichTextContaining('FirstSecond'), findsNothing);
+      final first = tester.getTopLeft(findRichTextContaining('First'));
+      final second = tester.getTopLeft(findRichTextContaining('Second'));
+      expect(second.dy, greaterThan(first.dy));
+      expect(second.dx, first.dx);
+    });
+
+    testWidgets('should put a quote inside a list item below its text', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SmoothMarkdown(
+            data: '- First\n  > quoted\n',
+            useRepaintBoundary: false,
+            enableCache: false,
+          ),
+        ),
+      );
+
+      expect(findRichTextContaining('Firstquoted'), findsNothing);
+      expect(
+        tester.getTopLeft(findRichTextContaining('quoted')).dy,
+        greaterThan(tester.getTopLeft(findRichTextContaining('First')).dy),
+      );
+    });
+
+    testWidgets('should put a plugin block inside a list item below its text', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SmoothMarkdown(
+            data: '- Item\n\n  ::: note\n  Body\n  :::\n',
+            plugins: ParserPluginRegistry()..register(const AdmonitionPlugin()),
+            builderRegistry: BuilderRegistry.defaults()
+              ..register('admonition', const _MarkerBuilder()),
+            useRepaintBoundary: false,
+            enableCache: false,
+          ),
+        ),
+      );
+
+      expect(find.text('ADMONITION'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('ADMONITION')).dy,
+        greaterThan(tester.getTopLeft(findRichTextContaining('Item')).dy),
+      );
+    });
+
     testWidgets('should render ordered list', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -465,4 +545,19 @@ void main() {
       expect(find.byType(SmoothMarkdown), findsOneWidget);
     });
   });
+}
+
+class _MarkerBuilder extends MarkdownWidgetBuilder {
+  const _MarkerBuilder();
+
+  @override
+  bool canBuild(MarkdownNode node) => node is AdmonitionNode;
+
+  @override
+  Widget build(
+    MarkdownNode node,
+    MarkdownStyleSheet styleSheet,
+    MarkdownRenderContext context,
+  ) =>
+      const Text('ADMONITION');
 }
